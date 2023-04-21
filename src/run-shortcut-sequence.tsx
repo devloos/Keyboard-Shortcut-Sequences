@@ -1,49 +1,17 @@
 import { List, LocalStorage, ActionPanel, Action, Icon, confirmAlert, Alert } from "@raycast/api";
 import { useEffect, useState } from "react";
 import SequenceForm from "./components/SequenceForm";
-import { Application, Sequence } from "./types";
+import { Sequence } from "./types";
 import { runShortcutSequence } from "./utils";
 
 export default function Command(props: { arguments: { sequenceName: string } }) {
   const { sequenceName } = props.arguments;
   const [sequences, setSequences] = useState<Sequence[]>();
-  const [apps, setApps] = useState<Application[]>();
-  const [currApp, setCurrApp] = useState<Application>();
-
-  const updateCurrApp = (value: string) => {
-    if (apps) {
-      const application = apps.find((el) => el.name === value);
-      if (application) {
-        setCurrApp(application);
-        setSequences(application.sequences);
-      }
-    }
-  };
-
-  const setState = (apps: Application[], app?: Application) => {
-    setApps(apps);
-    if (app) {
-      setCurrApp(app);
-      setSequences(app.sequences);
-    }
-  };
 
   useEffect(() => {
-    const init = async () => {
-      const existingApps = await LocalStorage.allItems();
-      if (existingApps) {
-        const applications: Application[] = [];
-        for (const key in existingApps) {
-          applications.push(JSON.parse(existingApps[key]));
-        }
-
-        setApps(applications);
-      } else {
-        setApps([]);
-      }
-    };
-
-    init();
+    LocalStorage.allItems().then((items) => {
+      setSequences(Object.values(items).map((value) => JSON.parse(value)));
+    });
   }, []);
 
   if (sequenceName.length != 0) {
@@ -101,7 +69,7 @@ export default function Command(props: { arguments: { sequenceName: string } }) 
               title="Edit Sequence"
               icon={Icon.Pencil}
               shortcut={{ modifiers: ["cmd"], key: "e" }}
-              target={<SequenceForm sequence={sequence} setState={setState} />}
+              target={<SequenceForm sequence={sequence} setSequences={setSequences} />}
             />
             <Action
               title="Delete Sequence"
@@ -123,54 +91,18 @@ export default function Command(props: { arguments: { sequenceName: string } }) 
               }}
             />
           </ActionPanel.Section>
-          <ActionPanel.Section title="Application Controls">
-            <Action
-              title="Delete Application"
-              icon={Icon.Trash}
-              style={Action.Style.Destructive}
-              shortcut={{ modifiers: ["cmd", "shift"], key: "backspace" }}
-              onAction={async () => {
-                if (
-                  await confirmAlert({
-                    title: "Delete Application",
-                    message: "Are you sure?",
-                    primaryAction: { title: "Delete", style: Alert.ActionStyle.Destructive },
-                  })
-                ) {
-                  const newApps = apps?.filter((el) => el.name !== currApp?.name);
-                  setApps(newApps);
-                  if (currApp) {
-                    await LocalStorage.removeItem(currApp.name);
-                  }
-
-                  if (apps?.length === 0) {
-                    setSequences([]);
-                  }
-                }
-              }}
-            />
-          </ActionPanel.Section>
         </ActionPanel>
       }
     />
   ));
 
-  const appList = apps?.map((app: Application) => {
-    return <List.Dropdown.Item title={app.name} value={app.name} key={app.name} />;
-  });
-
   return (
     <List
       searchBarPlaceholder="Search shortcut sequences..."
       searchText={sequenceName ? sequenceName : undefined}
-      searchBarAccessory={
-        <List.Dropdown tooltip="Applications" value={currApp ? currApp.name : undefined} onChange={updateCurrApp}>
-          {appList}
-        </List.Dropdown>
-      }
-      isLoading={apps === undefined}
+      isLoading={sequences == undefined}
     >
-      <List.EmptyView title="No Shortcut Sequences" icon={{ source: "no-list.png" }} />
+      <List.EmptyView title="No Shortcut Sequences" icon={{ source: "no-view.png" }} />
       {listItems}
     </List>
   );

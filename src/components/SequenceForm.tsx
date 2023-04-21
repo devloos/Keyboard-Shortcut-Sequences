@@ -10,17 +10,15 @@ import {
   showToast,
   useNavigation,
 } from "@raycast/api";
-import { useEffect, useState } from "react";
-import { Application, Sequence } from "../types";
+import { useState } from "react";
+import { Sequence } from "../types";
 
 export default function SequenceForm(props: {
   sequence?: Sequence;
-  setState?(apps: Application[], currApp?: Application): void;
+  setSequences?: React.Dispatch<React.SetStateAction<Sequence[] | undefined>>;
 }) {
-  const { sequence, setState } = props;
+  const { sequence, setSequences } = props;
   const [nameError, setNameError] = useState<string>();
-  const [appNameError, setAppNameError] = useState<string>();
-  const [appExistingNameError, setExistingAppNameError] = useState<string>();
   const [shortcutCount, setShortcutCount] = useState<number>(sequence ? sequence.shortcuts.length : 1);
   const [countError, setCountError] = useState<string>();
   const [shortcutKeys, setShortcutKeys] = useState<string[]>(
@@ -29,42 +27,15 @@ export default function SequenceForm(props: {
   const [shortcutModifiers, setShortcutModifiers] = useState<string[][]>(
     sequence ? sequence.shortcuts.map((shortcut) => shortcut.modifiers) : [[]]
   );
-  const [apps, setApps] = useState<Application[]>([]);
-  const [newApp, setNewApp] = useState<boolean>(false);
 
   const { pop } = useNavigation();
 
   const updateNameError = (name?: string): boolean => {
     if (!name) {
-      setNameError("Sequence name cannot be empty");
+      setNameError("Name cannot be empty");
       return false;
     }
     setNameError(undefined);
-    return true;
-  };
-
-  const updateAppNameError = (appName?: string): boolean => {
-    if (!appName) {
-      setAppNameError("App name cannot be empty");
-      return false;
-    }
-
-    if (apps?.some((el) => el.name === appName)) {
-      setAppNameError(`App: ${appName} already exists`);
-      return false;
-    }
-
-    setAppNameError(undefined);
-    return true;
-  };
-
-  const updateExistingAppNameError = (appName?: string): boolean => {
-    if (!appName) {
-      setExistingAppNameError("App name cannot be empty");
-      return false;
-    }
-
-    setExistingAppNameError(undefined);
     return true;
   };
 
@@ -156,24 +127,6 @@ export default function SequenceForm(props: {
     );
   }
 
-  useEffect(() => {
-    const init = async () => {
-      const existingApps = await LocalStorage.allItems();
-      if (existingApps) {
-        const applications: Application[] = [];
-        for (const key in existingApps) {
-          applications.push(JSON.parse(existingApps[key]));
-        }
-
-        setApps(applications);
-      } else {
-        setApps([]);
-      }
-    };
-
-    init();
-  }, []);
-
   return (
     <Form
       actions={
@@ -186,18 +139,6 @@ export default function SequenceForm(props: {
                 return;
               }
 
-              if (newApp) {
-                if (!updateAppNameError(values.applicationNameField)) {
-                  return;
-                }
-              } else {
-                if (!updateExistingAppNameError(values.sequenceAppField)) {
-                  return;
-                }
-              }
-
-              const appName = newApp ? values.applicationNameField : values.sequenceAppField;
-
               const shortcuts = shortcutKeys.map((keys, index) => {
                 return {
                   keystrokes: keys,
@@ -209,47 +150,20 @@ export default function SequenceForm(props: {
                 name: values.sequenceNameField,
                 description: values.sequenceDescriptionField,
                 icon: values.sequenceIconField,
-                parent: appName,
                 shortcuts: shortcuts,
               };
 
-              let app: Application | undefined = undefined;
-
-              if (newApp) {
-                app = {
-                  name: appName,
-                  sequences: [newSequence],
-                };
-                apps.push(app);
-              } else {
-                app = apps.find((el) => el.name === appName);
-                if (app) {
-                  const idx = app.sequences.findIndex((el) => el.name === newSequence.name);
-                  if (idx >= 0) {
-                    app.sequences[idx] = newSequence;
-                  } else {
-                    app.sequences.push(newSequence);
-                  }
-                }
+              if (sequence) {
+                await LocalStorage.removeItem(sequence.name);
               }
 
-              await LocalStorage.setItem(appName, JSON.stringify(app));
-
-              // clean up other app
-              if (sequence && sequence.parent !== newSequence.parent) {
-                const app = apps.find((el) => el.name === sequence.parent);
-                if (app) {
-                  app.sequences = app.sequences.filter((el) => el.name !== sequence.name);
-                  await LocalStorage.setItem(app.name, JSON.stringify(app));
-                }
-              }
-
-              if (setState) {
-                setState(apps, app);
+              await LocalStorage.setItem(values.sequenceNameField, JSON.stringify(newSequence));
+              if (setSequences) {
+                const items = await LocalStorage.allItems();
+                setSequences(Object.values(items).map((value) => JSON.parse(value)));
               }
 
               showToast({ title: "Added Shortcut Sequence" });
-
               if (!sequence) {
                 launchCommand({
                   name: "run-shortcut-sequence",
@@ -284,29 +198,6 @@ export default function SequenceForm(props: {
           <Form.Dropdown.Item title={entry[0]} value={entry[1]} icon={entry[1]} key={entry[0]} />
         ))}
       </Form.Dropdown>
-
-      <Form.Checkbox id="sequenceNewAppfield" label="New Application?" value={newApp} onChange={setNewApp} />
-      {newApp ? (
-        <Form.TextField
-          id="applicationNameField"
-          title="Application Name"
-          info="New Application name."
-          onChange={(value) => updateAppNameError(value)}
-          error={appNameError}
-        />
-      ) : (
-        <Form.Dropdown
-          id="sequenceAppField"
-          title="Application"
-          defaultValue={sequence ? sequence.parent : undefined}
-          info="The application this sequence will fall under."
-          error={appExistingNameError}
-        >
-          {apps.map((app) => (
-            <Form.Dropdown.Item title={app.name} value={app.name} key={app.name} />
-          ))}
-        </Form.Dropdown>
-      )}
 
       <Form.TextArea
         id="sequenceDescriptionField"

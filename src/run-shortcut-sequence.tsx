@@ -4,8 +4,8 @@ import SequenceForm from "./components/SequenceForm";
 import { Application, Sequence } from "./types";
 import { runShortcutSequence } from "./utils";
 
-export default function Command() {
-  const sequenceName = "";
+export default function Command(props: { arguments: { sequenceName: string } }) {
+  const { sequenceName } = props.arguments;
   const [sequences, setSequences] = useState<Sequence[]>();
   const [apps, setApps] = useState<Application[]>();
   const [currApp, setCurrApp] = useState<Application>();

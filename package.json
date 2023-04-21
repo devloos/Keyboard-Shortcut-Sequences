@@ -5,9 +5,6 @@
   "description": "Configure, save, and run sequences of keyboard shortcuts",
   "icon": "command-icon.png",
   "author": "HelloImSteven",
-  "contributors": [
-    "devlos"
-  ],
   "categories": [
     "Productivity",
     "Developer Tools",
@@ -25,7 +22,15 @@
       "name": "run-shortcut-sequence",
       "title": "Run Shortcut Sequence",
       "description": "Run a shortcut sequence from your list of configured sequences",
-      "mode": "view"
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "sequenceName",
+          "placeholder": "Sequence Name",
+          "required": false,
+          "type": "text"
+        }
+      ]
     }
   ],
   "dependencies": {
